@@ -1,0 +1,46 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'id.bpmpntt.sikawan'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'id.bpmpntt.sikawan'
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+
+    // Kunci tanda tangan APK. SIMPAN file sikawan.keystore baik-baik:
+    // pembaruan aplikasi hanya bisa dipasang di atas versi lama jika ditandatangani kunci yang sama.
+    signingConfigs {
+        sikawan {
+            storeFile file('sikawan.keystore')
+            storePassword '3tbIptoAPJwEHczZaS_JqXss'
+            keyAlias 'sikawan'
+            keyPassword '3tbIptoAPJwEHczZaS_JqXss'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.sikawan
+        }
+        debug {
+            signingConfig signingConfigs.sikawan
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core:1.13.1'
+}

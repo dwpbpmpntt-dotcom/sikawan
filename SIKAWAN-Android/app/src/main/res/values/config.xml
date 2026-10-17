@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      GANTI dengan alamat Aplikasi Web SIKAWAN dari Apps Script
+      (Terapkan > Kelola deployment > salin URL Aplikasi web), contoh:
+      https://script.google.com/macros/s/AKfycb..../exec
+    -->
+    <string name="web_app_url" translatable="false">https://script.google.com/macros/s/AKfycbzkndX2CA8HTCF6yawVUfgfCHKVTEo3yY2DZkY_2J90CeqCNKPfpTAx_vWDg-pE8HVhiQ/exec</string>
+</resources>
