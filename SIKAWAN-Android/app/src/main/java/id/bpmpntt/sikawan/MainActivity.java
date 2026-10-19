@@ -3,6 +3,9 @@ package id.bpmpntt.sikawan;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -17,6 +20,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.CookieManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
@@ -31,6 +35,8 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.FileProvider;
 
 import java.io.File;
@@ -44,6 +50,9 @@ public class MainActivity extends Activity {
 
     private static final int REQ_FILE = 1001;
     private static final int REQ_CAMERA_PERMISSION = 1002;
+    private static final int REQ_NOTIF_PERMISSION = 1003;
+    private static final String CHANNEL_ID = "sikawan_pemberitahuan";
+    private int notifId = 1;
 
     private WebView web;
     private ProgressBar progress;
@@ -73,6 +82,10 @@ public class MainActivity extends Activity {
         s.setLoadWithOverviewMode(true);
         s.setUseWideViewPort(true);
         s.setBuiltInZoomControls(false);
+
+        // Jembatan notifikasi: halaman SIKAWAN memanggil window.SikawanApp.notify(judul, isi)
+        web.addJavascriptInterface(new NotifBridge(), "SikawanApp");
+        siapkanNotifikasi();
 
         CookieManager cookies = CookieManager.getInstance();
         cookies.setAcceptCookie(true);
@@ -133,6 +146,55 @@ public class MainActivity extends Activity {
             web.restoreState(savedInstanceState);
         } else {
             web.loadUrl(homeUrl);
+        }
+    }
+
+    /* ---------------- Notifikasi ---------------- */
+
+    private void siapkanNotifikasi() {
+        if (Build.VERSION.SDK_INT >= 26) {
+            NotificationChannel ch = new NotificationChannel(CHANNEL_ID, "Pemberitahuan SIKAWAN",
+                    NotificationManager.IMPORTANCE_HIGH);
+            ch.setDescription("Tugas baru dan pesan dari pengguna SIKAWAN");
+            NotificationManager nm = getSystemService(NotificationManager.class);
+            if (nm != null) nm.createNotificationChannel(ch);
+        }
+        if (Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQ_NOTIF_PERMISSION);
+        }
+    }
+
+    private void tampilkanNotifikasi(String judul, String isi) {
+        if (Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return;
+        Intent buka = new Intent(this, MainActivity.class);
+        buka.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        PendingIntent pi = PendingIntent.getActivity(this, 0, buka,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        NotificationCompat.Builder b = new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notif)
+                .setColor(0xFF0B5D3B)
+                .setContentTitle(judul)
+                .setContentText(isi)
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(isi))
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setDefaults(NotificationCompat.DEFAULT_ALL)
+                .setAutoCancel(true)
+                .setContentIntent(pi);
+        try {
+            NotificationManagerCompat.from(this).notify(notifId++, b.build());
+        } catch (SecurityException e) {
+            // izin notifikasi dicabut pengguna
+        }
+    }
+
+    /** Dipanggil dari JavaScript halaman SIKAWAN. */
+    private class NotifBridge {
+        @JavascriptInterface
+        public void notify(final String judul, final String isi) {
+            runOnUiThread(() -> tampilkanNotifikasi(
+                    judul == null ? "SIKAWAN" : judul, isi == null ? "" : isi));
         }
     }
 
@@ -321,7 +383,7 @@ public class MainActivity extends Activity {
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode != REQ_CAMERA_PERMISSION) return;
+        if (requestCode != REQ_CAMERA_PERMISSION) return;   // izin notifikasi tidak perlu tindak lanjut
         boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
         if (!granted && cameraOnly) {
             Toast.makeText(this, "Izin kamera ditolak. Aktifkan di Pengaturan > Aplikasi > SIKAWAN.", Toast.LENGTH_LONG).show();
@@ -347,7 +409,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onPause() {
-        web.onPause();
+        // WebView tidak dijeda agar pengecekan pemberitahuan tetap berjalan saat aplikasi di latar belakang
         CookieManager.getInstance().flush();
         super.onPause();
     }
