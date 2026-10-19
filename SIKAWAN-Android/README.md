@@ -1,6 +1,6 @@
 # SIKAWAN – Aplikasi Android
 
-Sistem Informasi Keuangan DWP BPMP Provinsi NTT, dibungkus sebagai aplikasi Android (WebView)
+Sistem Informasi Keuangan dan Akuntabilitas DWP BPMP Provinsi NTT, dibungkus sebagai aplikasi Android (WebView)
 yang membuka Aplikasi Web Apps Script SIKAWAN.
 
 ## 1. Isi alamat aplikasi (wajib)
@@ -9,10 +9,10 @@ Aplikasi Web dari Apps Script (Terapkan → Kelola deployment → salin URL yang
 
 ## 2a. Build APK otomatis di GitHub (tanpa install apa pun)
 1. Buat repository baru di GitHub (sebaiknya **Private**).
-2. Unggah seluruh isi folder ini, termasuk folder `.github`.
+2. Unggah seluruh isi repo ini. Workflow build ada di `.github/workflows/build-apk.yml` (di akar repo).
 3. Buka tab **Actions** → workflow **Build APK SIKAWAN** berjalan otomatis (± 5 menit).
 4. Setelah selesai (centang hijau), buka run tersebut → bagian **Artifacts** → unduh **SIKAWAN-APK**
-   (berisi file `SIKAWAN-v1.0.apk`).
+   (berisi file APK SIKAWAN).
 
 ## 2b. Build di Android Studio
 Open folder ini → tunggu Gradle sync → **Build → Build App Bundle(s) / APK(s) → Build APK(s)**.

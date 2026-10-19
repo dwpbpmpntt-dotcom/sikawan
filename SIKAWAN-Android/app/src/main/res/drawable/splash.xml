@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Layar pembuka: latar putih dengan logo SiKawan di tengah -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@android:color/white" />
+    <item
+        android:width="220dp"
+        android:height="221dp"
+        android:gravity="center"
+        android:drawable="@drawable/splash_logo" />
+</layer-list>
