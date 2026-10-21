@@ -7,6 +7,8 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.ActivityNotFoundException;
+import android.content.ContentResolver;
+import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
@@ -14,6 +16,8 @@ import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
+import android.util.Base64;
 import android.provider.MediaStore;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -40,6 +44,8 @@ import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.FileProvider;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
 import java.io.IOException;
 
 /**
@@ -195,6 +201,109 @@ public class MainActivity extends Activity {
         public void notify(final String judul, final String isi) {
             runOnUiThread(() -> tampilkanNotifikasi(
                     judul == null ? "SIKAWAN" : judul, isi == null ? "" : isi));
+        }
+
+        /**
+         * Simpan file unduhan (base64) ke folder Download/SIKAWAN.
+         * Hasil: "ok|<uri>|<lokasi>" atau "err|<pesan>".
+         */
+        @JavascriptInterface
+        public String simpanFile(String base64, String mime, String nama) {
+            try {
+                return "ok|" + simpanUnduhan(base64, mime, nama);
+            } catch (Exception e) {
+                return "err|" + (e.getMessage() == null ? e.toString() : e.getMessage());
+            }
+        }
+
+        /** Buka file yang sudah diunduh dengan aplikasi yang sesuai (PDF/Word). */
+        @JavascriptInterface
+        public void bukaFile(final String uri, final String mime) {
+            runOnUiThread(() -> bukaUnduhan(Uri.parse(uri), mime));
+        }
+
+        @JavascriptInterface
+        public int versi() {
+            return 2;
+        }
+    }
+
+    /* ---------------- Unduhan dokumen ---------------- */
+
+    private String simpanUnduhan(String base64, String mime, String nama) throws IOException {
+        byte[] data = Base64.decode(base64, Base64.DEFAULT);
+        if (mime == null || mime.isEmpty()) mime = "application/octet-stream";
+        if (nama == null || nama.trim().isEmpty()) nama = "SIKAWAN-" + System.currentTimeMillis();
+        nama = nama.replaceAll("[\\\\/:*?\"<>|]", "_");
+        Uri uri;
+        String lokasi;
+        if (Build.VERSION.SDK_INT >= 29) {
+            ContentResolver cr = getContentResolver();
+            ContentValues v = new ContentValues();
+            v.put(MediaStore.MediaColumns.DISPLAY_NAME, nama);
+            v.put(MediaStore.MediaColumns.MIME_TYPE, mime);
+            v.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/SIKAWAN");
+            v.put(MediaStore.MediaColumns.IS_PENDING, 1);
+            uri = cr.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
+            if (uri == null) throw new IOException("Folder Download tidak dapat diakses.");
+            try (OutputStream out = cr.openOutputStream(uri)) {
+                if (out == null) throw new IOException("File tidak dapat ditulis.");
+                out.write(data);
+            }
+            v.clear();
+            v.put(MediaStore.MediaColumns.IS_PENDING, 0);
+            cr.update(uri, v, null, null);
+            lokasi = "Download/SIKAWAN/" + nama;
+        } else {
+            // Android 9 ke bawah: simpan di folder unduhan aplikasi (tanpa izin penyimpanan)
+            File dir = new File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "SIKAWAN");
+            if (!dir.exists() && !dir.mkdirs()) throw new IOException("Folder unduhan tidak dapat dibuat.");
+            File f = new File(dir, nama);
+            try (FileOutputStream out = new FileOutputStream(f)) {
+                out.write(data);
+            }
+            uri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", f);
+            lokasi = "Android/data/" + getPackageName() + "/files/Download/SIKAWAN/" + nama;
+        }
+        final Uri u = uri;
+        final String m = mime, n = nama, l = lokasi;
+        runOnUiThread(() -> notifUnduhan(u, m, n, l));
+        return uri.toString() + "|" + lokasi;
+    }
+
+    private void notifUnduhan(Uri uri, String mime, String nama, String lokasi) {
+        Toast.makeText(this, "Tersimpan: " + lokasi, Toast.LENGTH_LONG).show();
+        if (Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return;
+        Intent buka = new Intent(Intent.ACTION_VIEW);
+        buka.setDataAndType(uri, mime);
+        buka.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+        PendingIntent pi = PendingIntent.getActivity(this, notifId, buka,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        NotificationCompat.Builder b = new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notif)
+                .setColor(0xFF0B5D3B)
+                .setContentTitle("Unduhan selesai")
+                .setContentText(nama)
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(nama + "\nTersimpan di " + lokasi + ". Ketuk untuk membuka."))
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setAutoCancel(true)
+                .setContentIntent(pi);
+        try {
+            NotificationManagerCompat.from(this).notify(notifId++, b.build());
+        } catch (SecurityException e) {
+            // izin notifikasi dicabut pengguna
+        }
+    }
+
+    private void bukaUnduhan(Uri uri, String mime) {
+        Intent i = new Intent(Intent.ACTION_VIEW);
+        i.setDataAndType(uri, mime == null || mime.isEmpty() ? "*/*" : mime);
+        i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        try {
+            startActivity(Intent.createChooser(i, "Buka dengan"));
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(this, "Tidak ada aplikasi untuk membuka file ini. File tersimpan di folder Download/SIKAWAN.", Toast.LENGTH_LONG).show();
         }
     }
 
