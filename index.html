@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SIKAWAN DWP BPMP NTT</title>
+<meta name="description" content="Sistem Informasi Keuangan dan Akuntabilitas DWP BPMP Provinsi NTT">
+<meta name="theme-color" content="#1f4e79">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="SIKAWAN">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<style>
+  html,body{margin:0;height:100%;background:#fff;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#1d2533}
+  #app{position:fixed;inset:0;width:100%;height:100%;border:0;display:block}
+  #muat{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#fff;transition:opacity .3s}
+  #muat img{width:120px;height:120px}
+  #muat b{font-size:20px;color:#1f4e79;letter-spacing:.5px}
+  #muat small{color:#6b7585}
+  .putar{width:28px;height:28px;border:3px solid #e3e7ee;border-top-color:#1f4e79;border-radius:50%;animation:p 1s linear infinite}
+  @keyframes p{to{transform:rotate(360deg)}}
+  #pasang{position:fixed;left:12px;right:12px;bottom:max(12px,env(safe-area-inset-bottom));z-index:10;background:#fff;border-radius:16px;box-shadow:0 10px 40px rgba(10,20,40,.28);padding:16px;display:none;gap:12px;align-items:flex-start;max-width:520px;margin:0 auto}
+  #pasang.on{display:flex}
+  #pasang img{width:52px;height:52px;border-radius:12px;flex:none;border:1px solid #e3e7ee}
+  #pasang h3{margin:0 0 4px;font-size:16px}
+  #pasang p{margin:0;font-size:14px;color:#4a5565;line-height:1.4}
+  #pasang .tb{display:flex;gap:8px;margin-top:12px}
+  #pasang button{flex:1;border:0;border-radius:10px;padding:11px;font:inherit;font-weight:600;cursor:pointer}
+  #pYa{background:#1f4e79;color:#fff}
+  #pNanti{background:#eef1f5;color:#1f4e79}
+</style>
+</head>
+<body>
+<div id="muat"><img src="ikon-192.png" alt="Logo SIKAWAN"><b>SIKAWAN</b><div class="putar"></div><small>Memuat aplikasi&hellip;</small></div>
+<iframe id="app" title="SIKAWAN" allow="camera; clipboard-write; fullscreen" ></iframe>
+<div id="pasang" role="dialog" aria-label="Pasang SIKAWAN">
+  <img src="ikon-192.png" alt="">
+  <div style="flex:1">
+    <h3>Pasang SIKAWAN di layar utama?</h3>
+    <p id="pTeks">Buka SIKAWAN langsung dari ikon di HP Anda, tanpa mengetik alamat lagi.</p>
+    <div class="tb"><button id="pNanti" type="button">Nanti</button><button id="pYa" type="button">Pasang</button></div>
+  </div>
+</div>
+<script>
+(function(){
+  var EXEC = 'https://script.google.com/macros/s/AKfycbzkndX2CA8HTCF6yawVUfgfCHKVTEo3yY2DZkY_2J90CeqCNKPfpTAx_vWDg-pE8HVhiQ/exec';
+  var app = document.getElementById('app'), muat = document.getElementById('muat');
+  app.addEventListener('load', function(){ muat.style.opacity = 0; setTimeout(function(){ muat.style.display = 'none'; }, 300); });
+  app.src = EXEC + '?pwa=1';
+
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function(){});
+
+  var box = document.getElementById('pasang'), teks = document.getElementById('pTeks');
+  var terpasang = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  var simpan = function(k, v){ try { localStorage.setItem(k, v); } catch(e){} };
+  var baca = function(k){ try { return localStorage.getItem(k); } catch(e){ return null; } };
+  var tunda = function(){ var t = +baca('sikawan_pasang_nanti') || 0; return Date.now() - t < 3 * 24 * 3600 * 1000; };
+  var tampil = function(){ if (!terpasang && !tunda()) setTimeout(function(){ box.classList.add('on'); }, 1500); };
+  var ajakan = null;
+
+  // Android (Chrome, Edge, Samsung Internet): tawaran pasang otomatis
+  window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); ajakan = e; tampil(); });
+  window.addEventListener('appinstalled', function(){ box.classList.remove('on'); });
+
+  // iPhone/iPad (Safari): tidak ada tombol pasang otomatis, tampilkan petunjuk
+  var ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (ios && !terpasang) {
+    teks.innerHTML = 'Ketuk tombol <b>Bagikan</b> (kotak dengan panah ke atas) di bawah layar, lalu pilih <b>Tambahkan ke Layar Utama</b>.';
+    document.getElementById('pYa').textContent = 'Mengerti';
+    tampil();
+  }
+
+  document.getElementById('pNanti').onclick = function(){ simpan('sikawan_pasang_nanti', Date.now()); box.classList.remove('on'); };
+  document.getElementById('pYa').onclick = function(){
+    if (ajakan) { ajakan.prompt(); ajakan.userChoice.then(function(){ ajakan = null; box.classList.remove('on'); }); }
+    else { simpan('sikawan_pasang_nanti', Date.now()); box.classList.remove('on'); }
+  };
+})();
+</script>
+</body>
+</html>
