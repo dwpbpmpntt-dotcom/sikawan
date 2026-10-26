@@ -158,13 +158,9 @@ public class MainActivity extends Activity {
     /* ---------------- Notifikasi ---------------- */
 
     private void siapkanNotifikasi() {
-        if (Build.VERSION.SDK_INT >= 26) {
-            NotificationChannel ch = new NotificationChannel(CHANNEL_ID, "Pemberitahuan SIKAWAN",
-                    NotificationManager.IMPORTANCE_HIGH);
-            ch.setDescription("Tugas baru dan pesan dari pengguna SIKAWAN");
-            NotificationManager nm = getSystemService(NotificationManager.class);
-            if (nm != null) nm.createNotificationChannel(ch);
-        }
+        NotifUtil.siapkanKanal(this);
+        // Pemeriksa latar belakang tetap berjalan bila HP ini sudah terdaftar untuk sebuah akun
+        if (!NotifUtil.prefs(this).getString(NotifWorker.KEY_KUNCI, "").isEmpty()) NotifWorker.jadwalkan(this);
         if (Build.VERSION.SDK_INT >= 33
                 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQ_NOTIF_PERMISSION);
@@ -199,8 +195,37 @@ public class MainActivity extends Activity {
     private class NotifBridge {
         @JavascriptInterface
         public void notify(final String judul, final String isi) {
-            runOnUiThread(() -> tampilkanNotifikasi(
-                    judul == null ? "SIKAWAN" : judul, isi == null ? "" : isi));
+            NotifUtil.tampil(getApplicationContext(), judul, isi);
+        }
+
+        /** Daftarkan HP ini untuk notifikasi saat aplikasi tertutup (kunci dari server SIKAWAN). */
+        @JavascriptInterface
+        public void daftarPerangkat(String kunci, String pemilik, String sejak) {
+            long t;
+            try { t = Long.parseLong(sejak); } catch (Exception e) { t = System.currentTimeMillis(); }
+            NotifUtil.prefs(MainActivity.this).edit()
+                    .putString(NotifWorker.KEY_KUNCI, kunci == null ? "" : kunci)
+                    .putString(NotifWorker.KEY_PEMILIK, pemilik == null ? "" : pemilik)
+                    .putLong(NotifWorker.KEY_SEJAK, t).apply();
+            NotifWorker.jadwalkan(MainActivity.this);
+        }
+
+        @JavascriptInterface
+        public String kunciPerangkat() {
+            return NotifUtil.prefs(MainActivity.this).getString(NotifWorker.KEY_KUNCI, "");
+        }
+
+        @JavascriptInterface
+        public String pemilikPerangkat() {
+            return NotifUtil.prefs(MainActivity.this).getString(NotifWorker.KEY_PEMILIK, "");
+        }
+
+        /** Keluar akun: hentikan notifikasi latar belakang di HP ini. */
+        @JavascriptInterface
+        public void hapusPerangkat() {
+            NotifUtil.prefs(MainActivity.this).edit()
+                    .remove(NotifWorker.KEY_KUNCI).remove(NotifWorker.KEY_PEMILIK).apply();
+            NotifWorker.hentikan(MainActivity.this);
         }
 
         /**
@@ -224,7 +249,7 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public int versi() {
-            return 2;
+            return 3;
         }
     }
 
