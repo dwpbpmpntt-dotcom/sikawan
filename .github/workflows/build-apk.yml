@@ -5,6 +5,9 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -30,8 +33,24 @@ jobs:
         run: |
           VER=$(grep -oP "versionName '\K[^']+" app/build.gradle)
           cp app/build/outputs/apk/release/app-release.apk "SIKAWAN-v${VER}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "SIKAWAN.apk"
+          echo "VER=${VER}" >> "$GITHUB_ENV"
 
       - uses: actions/upload-artifact@v4
         with:
           name: SIKAWAN-APK
           path: SIKAWAN-Android/SIKAWAN-v*.apk
+
+      # Rilis publik: tautan unduhan tetap untuk versi terbaru
+      # https://github.com/<pemilik>/<repo>/releases/latest/download/SIKAWAN.apk
+      - name: Terbitkan rilis
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VER }}
+          name: SIKAWAN v${{ env.VER }}
+          body: Aplikasi Android SIKAWAN versi ${{ env.VER }}. Pasang di atas versi sebelumnya (tidak perlu menghapus aplikasi lama).
+          make_latest: true
+          files: |
+            SIKAWAN-Android/SIKAWAN.apk
+            SIKAWAN-Android/SIKAWAN-v${{ env.VER }}.apk
